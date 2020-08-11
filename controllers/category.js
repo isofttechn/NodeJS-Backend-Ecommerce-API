@@ -1,125 +1,80 @@
-const formidable = require("formidable");
-const _ = require("lodash");
-const fs = require("fs");
 const Category = require('../models/category');
-const { errorHandler } = require("../helpers/dbErrorHandler");
-
+const Product = require('../models/product');
+const { errorHandler } = require('../helpers/dbErrorHandler');
 
 exports.categoryById = (req, res, next, id) => {
-    Category.findById(id).exec((err, category)=>{
-        if(err || !category){
+    Category.findById(id).exec((err, category) => {
+        if (err || !category) {
             return res.status(400).json({
-                error: "Category does not exist"
+                error: 'Category does not exist'
             });
         }
-
         req.category = category;
         next();
     });
 };
 
-//READ THE CATEGORY
+exports.create = (req, res) => {
+    const category = new Category(req.body);
+    category.save((err, data) => {
+        if (err) {
+            return res.status(400).json({
+                error: errorHandler(err)
+            });
+        }
+        res.json({ data });
+    });
+};
+
 exports.read = (req, res) => {
     return res.json(req.category);
 };
-// END READ CATEGORY
 
-
-
-
-exports.create = (req, res)=>{
-let form = new formidable.IncomingForm();
-form.keepExtensions = true;
-    form.parse(req, (err, fields, files) =>{
-        if(err){
-            return res.status(400).json({
-                error: "Image could not be uploaded"
-            });
-        }
-
-        let category = new Category(fields);
-      
-       // console.log("COVE PHOTO: ", files.cover);
-         if(files.cover){
-             category.cover.data = fs.readFileSync(files.cover.path);
-             category.cover.contentType = files.cover.type;
-         }
-         
-        category.save((err, output) => {
-            if (err) {
-                return res.status(400).json({
-                    error: errorHandler(err)
-                });
-            }
-            res.json(output);
-        });
-       
-    });
-
-}
-
-
-
-//UPDATE CATEGORIES
 exports.update = (req, res) => {
-    let form = new formidable.IncomingForm();
-    form.keepExtensions = true;
-    form.parse(req, (err, fields, files) => {
+    console.log('req.body', req.body);
+    console.log('category update param', req.params.categoryId);
+
+    const category = req.category;
+    category.name = req.body.name;
+    category.save((err, data) => {
         if (err) {
             return res.status(400).json({
-                error: "Image could not be uploaded"
-            });
-        }
-
-        let category = req.category;
-        //USE LODASH EXTEND HERE
-        category = _.extend(category, fields);
-         
-       // console.log("COVE PHOTO: ", files.cover);
-        if (files.cover) {
-            category.cover.data = fs.readFileSync(files.cover.path);
-            category.cover.contentType = files.cover.type;
-        }
-
-        category.save((err, output) => {
-            if (err) {
-                return res.status(400).json({
-                    error: errorHandler(err)
-                });
-            }
-            res.json(output);
-        });
-
-    });
-
-}
-//END UPDATE CATEGORY METHOD
-
-
-//REMOVE CATEGORY METHOD
-exports.remove = (req, res)=>{
-    let category = req.category;
-    category.remove((err, deleteCategory)=>{
-        if(err){
-            return res.status(400).json({
-                error: errorHandler(err) 
-            });
-        }
-        res.json({
-            message: "Category deleted successfully"
-        })
-    });
-};
-
-
-//Fetching all categories
-exports.list = (req, res) => {
-    Category.find().exec((err, data)=>{
-        if(err){
-            res.status(400).json({
                 error: errorHandler(err)
             });
         }
         res.json(data);
     });
-}
+};
+
+exports.remove = (req, res) => {
+    const category = req.category;
+    Product.find({ category }).exec((err, data) => {
+        if (data.length >= 1) {
+            return res.status(400).json({
+                message: `Sorry. You cant delete ${category.name}. It has ${data.length} associated products.`
+            });
+        } else {
+            category.remove((err, data) => {
+                if (err) {
+                    return res.status(400).json({
+                        error: errorHandler(err)
+                    });
+                }
+                res.json({
+                    message: 'Category deleted'
+                });
+            });
+        }
+    });
+};
+
+exports.list = (req, res) => {
+    Category.find().exec((err, data) => {
+        if (err) {
+            return res.status(400).json({
+                error: errorHandler(err)
+            });
+        }
+        res.json(data);
+    });
+};
