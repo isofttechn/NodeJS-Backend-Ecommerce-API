@@ -12,6 +12,7 @@ const categorySchema = new mongoose.Schema(
         },
         cover: {
             data: Buffer,
+            required: false,
             contentType: String
         },
     }, 
